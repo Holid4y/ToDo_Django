@@ -1,0 +1,11 @@
+.card-body {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    flex-wrap: wrap;
+    padding: 10px 25px;
+}
+
+.card-title {
+    word-wrap: break-word;
+}

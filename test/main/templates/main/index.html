@@ -1,0 +1,124 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Todo</title>
+    <link rel="stylesheet" href="{% static 'main/css/bootstrap.min.css' %}">
+    <link rel="stylesheet" href="{% static 'main/css/style.css' %}">
+</head>
+<body>
+    <div class="container mt-5">
+        <div class="row justify-content-center">
+            <div class="col-12 col-sm-10 col-md-8 col-lg-6">
+                <div class="card">
+                    <form id="taskForm">
+                        <div class="input-group p-3">
+                            <input type="text" id="taskInput" class="form-control" placeholder="Название задачи" aria-describedby="button-addon2">
+                            <button type="busubmittton" class="btn btn-primary" style="background-color:#292b37; border:none" id="button-addon2">Добавить</button>
+                        </div>
+                    </form>
+                </div>
+            </div>
+        </div>
+        <div class="row mt-2 justify-content-center"><div class="col-12 col-sm-10 col-md-8 col-lg-6 mt-4" id="taskList"></div></div>
+    </div>
+
+    <script src="https://code.jquery.com/jquery-3.5.1.min.js"></script>
+    <script src="https://stackpath.bootstrapcdn.com/bootstrap/4.5.2/js/bootstrap.min.js"></script>
+    <script>
+        function addTaskToList(task) {
+            var checked = task.completed ? 'checked' : '';
+            var cardHtml = '<div class="card mb-3 col-12' + (task.completed ? ' border-success' : '') + '">' +
+                '<div class="card-body row">' +
+                    '<div class="form-check col-auto">' +
+                        '<input type="checkbox" class="form-check-input task-checkbox" ' + checked + '>' +
+                        '<label class="form-check-label" style="display: none;">' + task.title + '</label>' +
+                    '</div>' +
+                    '<h5 class="card-title col">' + task.title + '</h5>' +
+                    '<button class="btn btn-danger delete-task me-2 col-auto">Удалить</button>' +
+                    '<button class="btn btn-primary edit-task col-auto">Изменить</button>' +
+                '</div>' +
+            '</div>';
+            $('#taskList').prepend(cardHtml);
+        }
+        $(document).ready(function () {
+            // Загрузка задач при загрузке страницы
+            $.get('{% url 'get_tasks' %}', function (data) {
+                for (var i = 0; i < data.length; i++) {
+                    addTaskToList(data[i]);
+                }
+            });
+
+            // Отправка задачи на сервер при отправке формы
+            $('#taskForm').submit(function (event) {
+                event.preventDefault();
+                var taskInput = $('#taskInput').val();
+                $.post('{% url 'add_task' %}', {
+                    'title': taskInput,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                }, function (data) {
+                    if (data.success) {
+                        addTaskToList({ title: taskInput, completed: false });
+                        $('#taskInput').val('');
+                    }
+                });
+            });
+
+            // Изменение состояния задачи при изменении чек-бокса
+            $(document).on('change', '.task-checkbox', function () {
+                var card = $(this).closest('.card');
+                var taskTitle = card.find('.card-title').text();
+                var isChecked = $(this).is(':checked');
+                var completed = isChecked;
+                $.post('{% url 'update_task_status' %}', {
+                    'title': taskTitle,
+                    'completed': completed,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                }, function (data) {
+                    if (data.success) {
+                        if (completed) {
+                            card.addClass('border-success').prop('disabled', true);
+                        } else {
+                            card.removeClass('border-success').prop('disabled', false);
+                        }
+                    }
+                });
+            });
+
+            // Изменение задачи при нажатии на кнопку "изменить"
+            $(document).on('click', '.edit-task', function () {
+                var card = $(this).closest('.card');
+                var taskTitle = card.find('.card-title').text();
+                var newTitle = prompt('Enter new title for task', taskTitle);
+                if (newTitle && newTitle !== taskTitle) {
+                    $.post('{% url 'edit_task' %}', {
+                        'old_title': taskTitle,
+                        'new_title': newTitle,
+                        'csrfmiddlewaretoken': '{{ csrf_token }}'
+                    }, function (data) {
+                        if (data.success) {
+                            card.find('.card-title').text(newTitle);
+                        }
+                    });
+                }
+            });
+
+            // Удаление задачи при нажатии на кнопку "удалить"
+            $(document).on('click', '.delete-task', function () {
+                var taskTitle = $(this).closest('.card-body').find('.card-title').text();
+                var card = $(this).closest('.card');
+                $.post('{% url 'delete_task' %}', {
+                    'title': taskTitle,
+                    'csrfmiddlewaretoken': '{{ csrf_token }}'
+                }, function (data) {
+                    if (data.success) {
+                        card.remove();
+                    }
+                });
+            });
+        });
+    </script>
+</body>
+</html>
